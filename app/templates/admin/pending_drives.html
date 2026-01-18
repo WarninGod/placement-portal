@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Pending Drives{% endblock %}
+{% block content %}
+<h2>Pending Placement Drives</h2>
+<table class="table table-bordered table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>Title</th>
+      <th>Company</th>
+      <th>Type</th>
+      <th>Location</th>
+      <th>Deadline</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for drive in drives %}
+    <tr>
+      <td>{{ drive.title }}</td>
+      <td>{{ drive.company.company_name }}</td>
+      <td>{{ drive.job_type }}</td>
+      <td>{{ drive.location }}</td>
+      <td>{{ drive.application_deadline.strftime('%Y-%m-%d') }}</td>
+      <td>
+        <form action="{{ url_for('admin.approve_drive', drive_id=drive.id) }}" method="POST" style="display:inline;">
+          <button type="submit" class="btn btn-success btn-sm">Approve</button>
+        </form>
+        <form action="{{ url_for('admin.reject_drive', drive_id=drive.id) }}" method="POST" style="display:inline;">
+          <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center">No pending drives.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+{% endblock %}

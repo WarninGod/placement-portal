@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}My Applications{% endblock %}
+{% block content %}
+<h2>My Applications</h2>
+
+<div class="row mb-3">
+  <div class="col-md-3">
+    <div class="card text-bg-warning">
+      <div class="card-body text-center">
+        <h6>Pending</h6>
+        <span class="display-6">{{ applications|selectattr('status', 'equalto', 'pending')|list|length }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-bg-info">
+      <div class="card-body text-center">
+        <h6>Shortlisted</h6>
+        <span class="display-6">{{ applications|selectattr('status', 'equalto', 'shortlisted')|list|length }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-bg-success">
+      <div class="card-body text-center">
+        <h6>Selected</h6>
+        <span class="display-6">{{ applications|selectattr('status', 'equalto', 'selected')|list|length }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-bg-danger">
+      <div class="card-body text-center">
+        <h6>Rejected</h6>
+        <span class="display-6">{{ applications|selectattr('status', 'equalto', 'rejected')|list|length }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table class="table table-bordered table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>Drive Title</th>
+      <th>Company</th>
+      <th>Status</th>
+      <th>Applied On</th>
+      <th>Remarks</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for app in applications %}
+    <tr>
+      <td>{{ app.drive.title }}</td>
+      <td>{{ app.drive.company.company_name if app.drive.company else 'N/A' }}</td>
+      <td>
+        {% if app.status == 'selected' %}
+          <span class="badge bg-success">Selected</span>
+        {% elif app.status == 'shortlisted' %}
+          <span class="badge bg-info">Shortlisted</span>
+        {% elif app.status == 'pending' %}
+          <span class="badge bg-warning text-dark">Pending</span>
+        {% else %}
+          <span class="badge bg-danger">Rejected</span>
+        {% endif %}
+      </td>
+      <td>{{ app.applied_at.strftime('%d %b %Y') if app.applied_at else 'N/A' }}</td>
+      <td>{{ app.remarks or '-' }}</td>
+      <td>
+        {% if app.status == 'pending' %}
+        <form action="{{ url_for('student.withdraw_application', app_id=app.id) }}" method="POST" style="display:inline;">
+          <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to withdraw this application?')">Withdraw</button>
+        </form>
+        {% else %}
+          <span class="text-muted">-</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center">No applications found. <a href="{{ url_for('student.drives') }}">Browse drives</a></td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

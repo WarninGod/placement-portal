@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}My Drives{% endblock %}
+
+{% block content %}
+<h2>My Placement Drives</h2>
+<a href="{{ url_for('company.dashboard') }}" class="btn btn-secondary mb-3">Back to Dashboard</a>
+{% if current_user.is_approved %}
+<a href="{{ url_for('company.create_drive') }}" class="btn btn-success mb-3">Create New Drive</a>
+{% endif %}
+
+{% if drives %}
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Title</th>
+      <th>Job Type</th>
+      <th>Package</th>
+      <th>Deadline</th>
+      <th>Status</th>
+      <th>Applications</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for drive in drives %}
+    <tr>
+      <td>{{ drive.title }}</td>
+      <td>{{ drive.job_type }}</td>
+      <td>{{ drive.package or 'N/A' }}</td>
+      <td>{{ drive.application_deadline.strftime('%Y-%m-%d') if drive.application_deadline else 'N/A' }}</td>
+      <td>
+        {% if not drive.is_approved %}
+          <span class="badge bg-warning">Pending Approval</span>
+        {% elif not drive.is_active %}
+          <span class="badge bg-secondary">Closed</span>
+        {% else %}
+          <span class="badge bg-success">Active</span>
+        {% endif %}
+      </td>
+      <td>
+        <a href="{{ url_for('company.drive_applications', drive_id=drive.id) }}" class="btn btn-sm btn-outline-primary">
+          View ({{ drive.applications|list|length }})
+        </a>
+      </td>
+      <td>
+        {% if drive.is_active and drive.is_approved %}
+        <a href="{{ url_for('company.edit_drive', drive_id=drive.id) }}" class="btn btn-sm btn-warning">Edit</a>
+        <form action="{{ url_for('company.close_drive', drive_id=drive.id) }}" method="POST" style="display:inline;">
+          <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to close this drive?')">Close</button>
+        </form>
+        {% elif not drive.is_active %}
+          <span class="text-muted">Closed</span>
+        {% else %}
+          <span class="text-muted">Pending</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="alert alert-info">
+  No placement drives created yet. 
+  {% if current_user.is_approved %}
+  <a href="{{ url_for('company.create_drive') }}">Create your first drive!</a>
+  {% else %}
+  Your company account is pending approval.
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

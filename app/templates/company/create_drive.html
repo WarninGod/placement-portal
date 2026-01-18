@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Placement Drive{% endblock %}
+
+{% block content %}
+<h2>Create New Placement Drive</h2>
+<a href="{{ url_for('company.dashboard') }}" class="btn btn-secondary mb-3">Back to Dashboard</a>
+
+<div class="card">
+  <div class="card-body">
+    <form method="POST">
+      <div class="mb-3">
+        <label for="title" class="form-label">Job Title *</label>
+        <input type="text" class="form-control" id="title" name="title" required>
+      </div>
+      
+      <div class="mb-3">
+        <label for="description" class="form-label">Job Description *</label>
+        <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="job_type" class="form-label">Job Type *</label>
+          <select class="form-select" id="job_type" name="job_type" required>
+            <option value="Full-time">Full-time</option>
+            <option value="Internship">Internship</option>
+            <option value="Part-time">Part-time</option>
+          </select>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label for="location" class="form-label">Location</label>
+          <input type="text" class="form-control" id="location" name="location">
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="package" class="form-label">Package/Salary</label>
+          <input type="text" class="form-control" id="package" name="package" placeholder="e.g., 6 LPA or Rs. 25,000/month">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label for="application_deadline" class="form-label">Application Deadline *</label>
+          <input type="date" class="form-control" id="application_deadline" name="application_deadline" required>
+        </div>
+      </div>
+      
+      <div class="mb-3">
+        <label for="eligibility_criteria" class="form-label">Eligibility Criteria</label>
+        <textarea class="form-control" id="eligibility_criteria" name="eligibility_criteria" rows="2" placeholder="e.g., Minimum CGPA 7.0, CS/IT students only"></textarea>
+      </div>
+      
+      <div class="mb-3">
+        <label for="required_skills" class="form-label">Required Skills</label>
+        <textarea class="form-control" id="required_skills" name="required_skills" rows="2" placeholder="e.g., Python, SQL, Data Analysis"></textarea>
+      </div>
+      
+      <div class="alert alert-info">
+        <strong>Note:</strong> Your placement drive will be submitted for admin approval. It will be visible to students once approved.
+      </div>
+      
+      <button type="submit" class="btn btn-success">Create Drive</button>
+      <a href="{{ url_for('company.dashboard') }}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

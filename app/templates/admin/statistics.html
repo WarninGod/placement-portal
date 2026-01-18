@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}Placement Statistics{% endblock %}
+
+{% block content %}
+<h2>Placement Statistics</h2>
+<a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary mb-3">Back to Dashboard</a>
+
+<!-- Overview Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-md-2">
+    <div class="card text-bg-primary">
+      <div class="card-body text-center">
+        <h6>Students</h6>
+        <span class="display-6">{{ stats.total_students }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card text-bg-info">
+      <div class="card-body text-center">
+        <h6>Companies</h6>
+        <span class="display-6">{{ stats.total_companies }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card text-bg-success">
+      <div class="card-body text-center">
+        <h6>Active Drives</h6>
+        <span class="display-6">{{ stats.active_drives }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card text-bg-warning">
+      <div class="card-body text-center">
+        <h6>Applications</h6>
+        <span class="display-6">{{ stats.total_applications }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card text-bg-success">
+      <div class="card-body text-center">
+        <h6>Selected</h6>
+        <span class="display-6">{{ stats.selected }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card text-bg-secondary">
+      <div class="card-body text-center">
+        <h6>Success Rate</h6>
+        <span class="display-6">{{ stats.success_rate }}%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Application Status Breakdown -->
+<div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5>Application Status Breakdown</h5>
+      </div>
+      <div class="card-body">
+        <table class="table">
+          <tr>
+            <td>Pending</td>
+            <td><span class="badge bg-warning">{{ stats.pending }}</span></td>
+            <td>
+              <div class="progress">
+                <div class="progress-bar bg-warning" style="width: {{ (stats.pending / stats.total_applications * 100) if stats.total_applications > 0 else 0 }}%"></div>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Shortlisted</td>
+            <td><span class="badge bg-info">{{ stats.shortlisted }}</span></td>
+            <td>
+              <div class="progress">
+                <div class="progress-bar bg-info" style="width: {{ (stats.shortlisted / stats.total_applications * 100) if stats.total_applications > 0 else 0 }}%"></div>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Selected</td>
+            <td><span class="badge bg-success">{{ stats.selected }}</span></td>
+            <td>
+              <div class="progress">
+                <div class="progress-bar bg-success" style="width: {{ (stats.selected / stats.total_applications * 100) if stats.total_applications > 0 else 0 }}%"></div>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Rejected</td>
+            <td><span class="badge bg-danger">{{ stats.rejected }}</span></td>
+            <td>
+              <div class="progress">
+                <div class="progress-bar bg-danger" style="width: {{ (stats.rejected / stats.total_applications * 100) if stats.total_applications > 0 else 0 }}%"></div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5>Top Companies by Applications</h5>
+      </div>
+      <div class="card-body">
+        {% if top_companies %}
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Company</th>
+              <th>Applications</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for company in top_companies %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ company.name }}</td>
+              <td><span class="badge bg-primary">{{ company.count }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No application data available.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Department-wise Stats -->
+<div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5>Department-wise Students</h5>
+      </div>
+      <div class="card-body">
+        {% if dept_stats %}
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Department</th>
+              <th>Students</th>
+              <th>Applications</th>
+              <th>Selected</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for dept in dept_stats %}
+            <tr>
+              <td>{{ dept.name }}</td>
+              <td>{{ dept.students }}</td>
+              <td>{{ dept.applications }}</td>
+              <td><span class="badge bg-success">{{ dept.selected }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No department data available.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5>Recent Admin Actions</h5>
+      </div>
+      <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+        {% if recent_actions %}
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Target</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for action in recent_actions %}
+            <tr>
+              <td><span class="badge bg-secondary">{{ action.action_type }}</span></td>
+              <td>{{ action.target_type }} #{{ action.target_id }}</td>
+              <td>{{ action.timestamp.strftime('%d %b %H:%M') if action.timestamp else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No recent admin actions.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Section -->
+<div class="card">
+  <div class="card-header">
+    <h5>Export Reports</h5>
+  </div>
+  <div class="card-body">
+    <a href="{{ url_for('admin.export_students') }}" class="btn btn-outline-primary">Export Students CSV</a>
+    <a href="{{ url_for('admin.export_applications') }}" class="btn btn-outline-success">Export Applications CSV</a>
+    <a href="{{ url_for('admin.export_companies') }}" class="btn btn-outline-info">Export Companies CSV</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ drive.title }} - Drive Details{% endblock %}
+
+{% block content %}
+<h2>{{ drive.title }}</h2>
+<a href="{{ url_for('student.drives') }}" class="btn btn-secondary mb-3">Back to All Drives</a>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <h5>{{ drive.company.company_name }}</h5>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <p><strong>Job Type:</strong> {{ drive.job_type }}</p>
+        <p><strong>Location:</strong> {{ drive.location or 'Not specified' }}</p>
+        <p><strong>Package:</strong> {{ drive.package or 'Not disclosed' }}</p>
+      </div>
+      <div class="col-md-6">
+        <p><strong>Application Deadline:</strong> 
+          <span class="badge bg-warning text-dark">{{ drive.application_deadline.strftime('%d %B %Y') }}</span>
+        </p>
+        <p><strong>Posted On:</strong> {{ drive.created_at.strftime('%d %B %Y') if drive.created_at else 'N/A' }}</p>
+      </div>
+    </div>
+    
+    <hr>
+    
+    <h6>Job Description</h6>
+    <p>{{ drive.description }}</p>
+    
+    {% if drive.eligibility_criteria %}
+    <h6>Eligibility Criteria</h6>
+    <p>{{ drive.eligibility_criteria }}</p>
+    {% endif %}
+    
+    {% if drive.required_skills %}
+    <h6>Required Skills</h6>
+    <p>{{ drive.required_skills }}</p>
+    {% endif %}
+    
+    <hr>
+    
+    <h6>About {{ drive.company.company_name }}</h6>
+    <p>{{ drive.company.description or 'No company description available.' }}</p>
+    {% if drive.company.website %}
+    <p><strong>Website:</strong> <a href="{{ drive.company.website }}" target="_blank">{{ drive.company.website }}</a></p>
+    {% endif %}
+    {% if drive.company.location %}
+    <p><strong>Company Location:</strong> {{ drive.company.location }}</p>
+    {% endif %}
+  </div>
+  <div class="card-footer">
+    {% if already_applied %}
+      <span class="badge bg-info">You have already applied to this drive</span>
+      <a href="{{ url_for('student.applications') }}" class="btn btn-outline-primary btn-sm">View My Applications</a>
+    {% else %}
+      <form method="POST" action="{{ url_for('student.apply_drive', drive_id=drive.id) }}" style="display:inline;">
+        <button type="submit" class="btn btn-success" onclick="return confirm('Are you sure you want to apply to this drive?')">
+          Apply Now
+        </button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

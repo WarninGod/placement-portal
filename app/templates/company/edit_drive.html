@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Drive{% endblock %}
+
+{% block content %}
+<h2>Edit Placement Drive</h2>
+<a href="{{ url_for('company.drives') }}" class="btn btn-secondary mb-3">Back to My Drives</a>
+
+<div class="card">
+  <div class="card-body">
+    <form method="POST">
+      <div class="mb-3">
+        <label for="title" class="form-label">Job Title *</label>
+        <input type="text" class="form-control" id="title" name="title" value="{{ drive.title }}" required>
+      </div>
+      
+      <div class="mb-3">
+        <label for="description" class="form-label">Job Description *</label>
+        <textarea class="form-control" id="description" name="description" rows="4" required>{{ drive.description }}</textarea>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="job_type" class="form-label">Job Type *</label>
+          <select class="form-select" id="job_type" name="job_type" required>
+            <option value="Full-time" {% if drive.job_type == 'Full-time' %}selected{% endif %}>Full-time</option>
+            <option value="Internship" {% if drive.job_type == 'Internship' %}selected{% endif %}>Internship</option>
+            <option value="Part-time" {% if drive.job_type == 'Part-time' %}selected{% endif %}>Part-time</option>
+          </select>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label for="location" class="form-label">Location</label>
+          <input type="text" class="form-control" id="location" name="location" value="{{ drive.location or '' }}">
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="package" class="form-label">Package/Salary</label>
+          <input type="text" class="form-control" id="package" name="package" value="{{ drive.package or '' }}">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label for="application_deadline" class="form-label">Application Deadline *</label>
+          <input type="date" class="form-control" id="application_deadline" name="application_deadline" value="{{ drive.application_deadline.strftime('%Y-%m-%d') if drive.application_deadline else '' }}" required>
+        </div>
+      </div>
+      
+      <div class="mb-3">
+        <label for="eligibility_criteria" class="form-label">Eligibility Criteria</label>
+        <textarea class="form-control" id="eligibility_criteria" name="eligibility_criteria" rows="2">{{ drive.eligibility_criteria or '' }}</textarea>
+      </div>
+      
+      <div class="mb-3">
+        <label for="required_skills" class="form-label">Required Skills</label>
+        <textarea class="form-control" id="required_skills" name="required_skills" rows="2">{{ drive.required_skills or '' }}</textarea>
+      </div>
+      
+      <button type="submit" class="btn btn-primary">Update Drive</button>
+      <a href="{{ url_for('company.drives') }}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

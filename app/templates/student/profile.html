@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Profile{% endblock %}
+
+{% block content %}
+<h2>My Profile</h2>
+<a href="{{ url_for('student.dashboard') }}" class="btn btn-secondary mb-3">Back to Dashboard</a>
+
+{% if profile %}
+<div class="card">
+  <div class="card-body">
+    <h4 class="card-title">{{ profile.full_name }}</h4>
+    <hr>
+    <div class="row">
+      <div class="col-md-6">
+        <p><strong>Roll Number:</strong> {{ profile.roll_number }}</p>
+        <p><strong>Department:</strong> {{ profile.department or 'N/A' }}</p>
+        <p><strong>Year:</strong> {{ profile.year or 'N/A' }}</p>
+        <p><strong>CGPA:</strong> {{ profile.cgpa or 'N/A' }}</p>
+      </div>
+      <div class="col-md-6">
+        <p><strong>Email:</strong> {{ current_user.email }}</p>
+        <p><strong>Phone:</strong> {{ profile.phone or 'N/A' }}</p>
+        <p><strong>Date of Birth:</strong> {{ profile.dob.strftime('%Y-%m-%d') if profile.dob else 'N/A' }}</p>
+        <p><strong>10th Marks:</strong> {{ profile.tenth_marks or 'N/A' }}%</p>
+        <p><strong>12th Marks:</strong> {{ profile.twelfth_marks or 'N/A' }}%</p>
+      </div>
+    </div>
+    <hr>
+    <p><strong>Address:</strong></p>
+    <p>{{ profile.address or 'No address provided.' }}</p>
+    
+    <p><strong>Skills:</strong></p>
+    <p>{{ profile.skills or 'No skills listed.' }}</p>
+    
+    <a href="{{ url_for('student.edit_profile') }}" class="btn btn-primary mt-3">Edit Profile</a>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <h5>Resume</h5>
+  </div>
+  <div class="card-body">
+    {% if profile.resume_filename %}
+      <p><strong>Current Resume:</strong> {{ profile.resume_filename }}</p>
+      <a href="{{ url_for('student.download_resume') }}" class="btn btn-outline-primary btn-sm">Download</a>
+      <form action="{{ url_for('student.upload_resume') }}" method="POST" enctype="multipart/form-data" class="mt-3">
+        <div class="mb-3">
+          <label for="resume" class="form-label">Update Resume (PDF only):</label>
+          <input type="file" class="form-control" id="resume" name="resume" accept=".pdf">
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm">Upload New Resume</button>
+      </form>
+    {% else %}
+      <p>No resume uploaded yet.</p>
+      <form action="{{ url_for('student.upload_resume') }}" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="resume" class="form-label">Upload Resume (PDF only):</label>
+          <input type="file" class="form-control" id="resume" name="resume" accept=".pdf" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload Resume</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <h5>Account Status</h5>
+  </div>
+  <div class="card-body">
+    <p><strong>Account Status:</strong> 
+      {% if current_user.is_blacklisted %}
+        <span class="badge bg-danger">Blacklisted</span>
+      {% elif current_user.is_active %}
+        <span class="badge bg-success">Active</span>
+      {% else %}
+        <span class="badge bg-secondary">Inactive</span>
+      {% endif %}
+    </p>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-warning">Profile not found. Please contact admin.</div>
+{% endif %}
+{% endblock %}

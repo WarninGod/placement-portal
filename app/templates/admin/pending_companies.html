@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Pending Companies{% endblock %}
+
+{% block content %}
+<h2>Pending Company Approvals</h2>
+<a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary mb-3">Back to Dashboard</a>
+
+{% if companies %}
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Company Name</th>
+      <th>Email</th>
+      <th>Industry</th>
+      <th>Location</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for company in companies %}
+    <tr>
+      <td>{{ company.company_profile.company_name if company.company_profile else 'N/A' }}</td>
+      <td>{{ company.email }}</td>
+      <td>{{ company.company_profile.industry if company.company_profile else 'N/A' }}</td>
+      <td>{{ company.company_profile.location if company.company_profile else 'N/A' }}</td>
+      <td>
+        <form action="{{ url_for('admin.approve_company', user_id=company.id) }}" method="POST" style="display:inline;">
+          <button type="submit" class="btn btn-success btn-sm">Approve</button>
+        </form>
+        <form action="{{ url_for('admin.reject_company', user_id=company.id) }}" method="POST" style="display:inline;">
+          <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="alert alert-info">No pending companies to approve.</div>
+{% endif %}
+{% endblock %}

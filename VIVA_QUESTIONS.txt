@@ -1,0 +1,445 @@
+================================================================================
+              PLACEMENT PORTAL - VIVA QUESTIONS & ANSWERS
+================================================================================
+
+This document contains potential viva questions related to the Placement Portal
+application architecture, design decisions, and implementation details.
+
+================================================================================
+                        SECTION 1: DATABASE DESIGN
+================================================================================
+
+Q1: Why did you use SQLite instead of MySQL or PostgreSQL?
+A: SQLite is lightweight, requires no separate server installation, and is
+   perfect for college-level projects with limited concurrent users. It's
+   portable (single file), easy to demonstrate on any machine, and can be
+   created programmatically within Flask without additional setup. For
+   production systems with heavy traffic, we would use PostgreSQL or MySQL.
+
+Q2: Explain the relationship between users, company_profiles, and student_profiles.
+A: The users table is the central authentication table for all roles. It has
+   one-to-one relationships with company_profiles and student_profiles. A user
+   with role='company' will have exactly one entry in company_profiles (linked
+   via user_id foreign key). Similarly, a user with role='student' will have
+   exactly one entry in student_profiles. This is a normalized design pattern
+   that separates authentication from role-specific data.
+
+Q3: How do you prevent a student from applying to the same drive twice?
+A: We use a UNIQUE constraint on (student_id, drive_id) in the applications
+   table. This database-level constraint ensures that even if the application
+   logic fails, the database will reject duplicate entries. Additionally, we
+   check for existing applications before INSERT and show an error message.
+
+Q4: What is the purpose of the is_approved field in both users and placement_drives?
+A: For users: Controls whether a company can login and create drives. Companies
+   register with is_approved=FALSE and must wait for admin approval before
+   accessing the system.
+   For placement_drives: Controls whether a drive is visible to students.
+   Companies can create drives, but they remain hidden until admin approves them.
+   This provides two-level quality control.
+
+Q5: Why not delete applications when a drive is closed?
+A: We follow the principle of data preservation. Applications are never deleted
+   to maintain:
+   1. Complete historical records
+   2. Audit trails for compliance
+   3. Statistics and reporting accuracy
+   4. Student application history
+   We use soft deletion (is_active flags) instead of hard deletion (DELETE).
+
+Q6: Explain the foreign key relationships in the applications table.
+A: applications has two foreign keys:
+   - student_id → student_profiles.id (which student applied)
+   - drive_id → placement_drives.id (to which drive)
+   This creates a many-to-many relationship between students and drives.
+   The applications table is called a "join table" or "association table"
+   that resolves the many-to-many relationship and adds extra attributes
+   (status, applied_at, remarks).
+
+Q7: What would happen if you try to delete a company that has created drives?
+A: If we have proper foreign key constraints with CASCADE rules:
+   - ON DELETE CASCADE: Deleting company would delete all its drives (dangerous)
+   - ON DELETE RESTRICT: Database would prevent deletion if drives exist (safer)
+   Better approach: Soft delete using is_active=FALSE flag, so data is preserved
+   but company cannot login. This maintains referential integrity and history.
+
+Q8: How do you handle the case where multiple admins exist?
+A: While the current design assumes one admin, the architecture supports
+   multiple admins:
+   - All admins have role='admin' in users table
+   - Optional: Add admin_actions table with admin_id to track who did what
+   - All admins have equal privileges (no super-admin vs regular admin)
+   - If hierarchy needed: Add admin_level field (1=super, 2=regular)
+
+
+================================================================================
+                    SECTION 2: AUTHENTICATION & SECURITY
+================================================================================
+
+Q9: How do you store passwords securely?
+A: We use werkzeug.security.generate_password_hash() to create hashed passwords
+   using PBKDF2-SHA256 algorithm. We NEVER store plain text passwords. The hash
+   is one-way (cannot be reversed). During login, we use check_password_hash()
+   to compare the input password with the stored hash. Even if the database is
+   compromised, attackers cannot retrieve original passwords.
+
+Q10: What is the difference between authentication and authorization?
+A: Authentication: Verifying WHO the user is (login with email + password).
+   Authorization: Verifying WHAT the user can do (role-based access control).
+   Example: A company user authenticates by providing valid credentials, but
+   authorization checks if they're approved before allowing drive creation.
+
+Q11: Explain how session management works in Flask.
+A: When a user logs in successfully, we store user_id and role in Flask session
+   (server-side encrypted cookie). On subsequent requests, we read from session
+   to identify the logged-in user. Session data is encrypted using a SECRET_KEY.
+   When user logs out, we call session.clear() to remove the data. Sessions
+   expire after browser closure or configured timeout.
+
+Q12: How do you implement the @role_required decorator?
+A: The decorator checks two things:
+   1. Is user logged in? (user_id exists in session)
+   2. Does user have the required role? (session['role'] == required_role)
+   If either check fails, we return 403 Forbidden or redirect to login.
+   Example implementation:
+   ```python
+   def role_required(role):
+       def decorator(f):
+           @wraps(f)
+           def wrapper(*args, **kwargs):
+               if 'user_id' not in session:
+                   return redirect('/login')
+               if session.get('role') != role:
+                   abort(403)
+               return f(*args, **kwargs)
+           return wrapper
+       return decorator
+   ```
+
+Q13: What prevents a student from accessing /company/dashboard?
+A: Three layers of protection:
+   1. @login_required decorator: Ensures user is logged in
+   2. @role_required('company') decorator: Checks session['role'] == 'company'
+   3. URL prefixes: /company/* routes are in company blueprint with role checks
+   If a student tries to access, the decorator returns 403 Forbidden.
+
+Q14: How do you prevent SQL injection attacks?
+A: We use SQLAlchemy ORM which automatically parameterizes queries. Instead of:
+   query = "SELECT * FROM users WHERE email='" + user_input + "'"  # UNSAFE!
+   We use:
+   user = User.query.filter_by(email=email).first()  # Safe - parameterized
+   SQLAlchemy escapes special characters and uses prepared statements.
+
+Q15: What is CSRF and how does Flask protect against it?
+A: CSRF (Cross-Site Request Forgery) is when an attacker tricks a user into
+   submitting unwanted requests. Flask-WTF provides CSRF protection by:
+   1. Generating a random token for each form
+   2. Embedding token in hidden field
+   3. Validating token on form submission
+   4. Rejecting requests with invalid/missing tokens
+   All forms must include {{ form.csrf_token }} in templates.
+
+
+================================================================================
+                      SECTION 3: BUSINESS LOGIC & WORKFLOWS
+================================================================================
+
+Q16: Why do companies need admin approval but students don't?
+A: Risk management:
+   - Malicious actors could register fake companies to collect student data
+   - Admin verification ensures only legitimate companies can post drives
+   - Students are from the same institute (trusted environment)
+   - Student registration can be auto-approved for faster onboarding
+   - Companies represent external entities requiring validation
+
+Q17: What happens if a student tries to apply after the deadline?
+A: The system performs multiple checks:
+   1. Frontend: JavaScript disables "Apply" button if deadline passed (optional)
+   2. Backend: Query filters out expired drives in browse listing
+   3. Direct POST protection: Controller checks application_deadline >= today
+   4. If check fails: Flash error "Application deadline has passed" and reject
+
+Q18: How do you handle the application status workflow?
+A: Valid transitions:
+   - pending → shortlisted/rejected (company reviews applications)
+   - shortlisted → selected/rejected (after interview process)
+   Invalid transitions (rejected by system):
+   - rejected → selected (cannot un-reject)
+   - selected → any other status (finalized)
+   - Any status → pending (no backwards movement)
+   The controller validates current_status before allowing UPDATE.
+
+Q19: Can a company edit a drive after it's been approved?
+A: Design decision: NO. Once admin approves a drive, the company cannot edit it
+   to prevent bait-and-switch tactics (e.g., lowering package after students
+   apply). If changes needed, company must request admin to update or create a
+   new drive. This maintains data integrity and student trust.
+
+Q20: What if a student is blacklisted after applying to drives?
+A: The student's existing applications remain in the database (history
+   preservation), but:
+   - Student cannot login (is_blacklisted=TRUE check in login)
+   - Cannot submit new applications
+   - Companies can still view and process existing applications
+   - Admin can see student's complete history
+   - If un-blacklisted later, student can login again
+
+Q21: How do you prevent a company from approving its own drives?
+A: Drive approval is an admin-only action. The /admin/drives/<id>/approve route
+   has @role_required('admin') decorator. Companies can CREATE drives but cannot
+   set is_approved=TRUE themselves. Only admin can approve, ensuring unbiased
+   review of drive quality and legitimacy.
+
+
+================================================================================
+                      SECTION 4: FLASK & PYTHON CONCEPTS
+================================================================================
+
+Q22: What are Flask Blueprints and why use them?
+A: Blueprints are modules that organize routes, templates, and static files into
+   logical units. Benefits:
+   - Modular code organization (auth, admin, company, student modules)
+   - Reusability (can use same blueprint in multiple apps)
+   - URL prefixes (/admin/*, /student/*)
+   - Easier team collaboration (different devs work on different blueprints)
+   - Better testing (test each blueprint independently)
+
+Q23: What is the difference between GET and POST requests?
+A: GET: Requests data from server. Parameters in URL. Idempotent (safe to repeat).
+        Used for: Viewing pages, searching, filtering
+        Example: /student/drives?search=software
+   POST: Sends data to server. Parameters in request body. Not idempotent.
+        Used for: Form submissions, creating/updating records
+        Example: Submitting application form
+
+Q24: Explain Flask's app factory pattern.
+A: Instead of creating Flask app at module level (app = Flask(__name__)),
+   we create a function that returns a configured app:
+   ```python
+   def create_app():
+       app = Flask(__name__)
+       app.config.from_object(Config)
+       db.init_app(app)
+       register_blueprints(app)
+       return app
+   ```
+   Benefits: Testing with different configs, multiple app instances, cleaner code
+
+Q25: What is Jinja2 template inheritance?
+A: A pattern where child templates extend a base template:
+   base.html: Contains navbar, footer, common structure
+   student/dashboard.html: {% extends "base.html" %} and overrides blocks
+   Benefits: DRY principle, consistent UI, update navbar once affects all pages
+
+Q26: How do you handle file uploads (resume)?
+A: Process:
+   1. HTML form: <input type="file" name="resume" accept=".pdf,.docx">
+          with enctype="multipart/form-data"
+   2. Flask route: file = request.files['resume']
+   3. Validate: Check file extension, size limit
+   4. Sanitize filename: secure_filename(file.filename)
+   5. Save: file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+   6. Store filename in database: student_profile.resume_filename = unique_filename
+   7. Serve file: send_from_directory(UPLOAD_FOLDER, filename)
+
+Q27: What is SQLAlchemy and why use ORM?
+A: SQLAlchemy is a Python ORM (Object-Relational Mapper). Instead of writing
+   raw SQL queries, we interact with database using Python classes and objects.
+   Benefits:
+   - Database-agnostic (switch SQLite to PostgreSQL with minimal changes)
+   - Python syntax (no SQL string concatenation)
+   - Automatic query parameterization (SQL injection protection)
+   - Relationship navigation (user.company_profile instead of JOIN queries)
+   - Migration support (Alembic tracks schema changes)
+
+
+================================================================================
+                    SECTION 5: PROJECT-SPECIFIC SCENARIOS
+================================================================================
+
+Q28: How would you add email notifications for application status updates?
+A: Implementation steps:
+   1. Install flask-mail: pip install flask-mail
+   2. Configure SMTP in config.py (Gmail, SendGrid, etc.)
+   3. Create send_email(to, subject, body) function in utils.py
+   4. In company/routes.py, after updating application status:
+      if new_status == 'selected':
+          send_email(student.email, "Application Selected", "Congratulations...")
+   5. Use threading for async sending (don't block HTTP response)
+
+Q29: How would you implement a search feature for drives?
+A: Add search form with query parameter:
+   1. HTML: <input name="q" placeholder="Search drives">
+   2. Route: query = request.args.get('q', '')
+   3. SQL: Drive.query.filter(Drive.title.ilike(f'%{query}%') | 
+                               Drive.description.ilike(f'%{query}%'))
+   4. Display results with "Showing results for '{query}'" message
+
+Q30: How would you generate a PDF report of student applications?
+A: Use ReportLab library:
+   1. Install: pip install reportlab
+   2. Create function: generate_application_report(student_id)
+   3. Query all applications for student
+   4. Create PDF with ReportLab: Table of applications, status, dates
+   5. Return as downloadable file: send_file(pdf_path, as_attachment=True)
+
+Q31: How would you add pagination to the student list (admin view)?
+A: Use Flask-SQLAlchemy pagination:
+   ```python
+   page = request.args.get('page', 1, type=int)
+   students = Student.query.paginate(page=page, per_page=20)
+   # In template:
+   {% for student in students.items %}
+   {{ students.prev_url }}, {{ students.next_url }}
+   ```
+
+Q32: What if two students have the same roll number?
+A: Database design prevents this: roll_number has UNIQUE constraint in
+   student_profiles table. If duplicate attempted:
+   1. SQLAlchemy raises IntegrityError
+   2. Catch exception in controller
+   3. Flash error: "Roll number already exists"
+   4. Return to registration form with prefilled data
+
+Q33: How would you implement a "forgot password" feature?
+A: Workflow:
+   1. User clicks "Forgot Password" → enters email
+   2. System generates unique token: uuid.uuid4()
+   3. Store token in password_reset_tokens table with expiry (1 hour)
+   4. Email reset link: /reset-password?token=xyz
+   5. User clicks link, enters new password
+   6. System validates token (exists, not expired, not used)
+   7. Update password_hash, mark token as used
+   8. Flash success message and redirect to login
+
+
+================================================================================
+                      SECTION 6: ADVANCED & CONCEPTUAL
+================================================================================
+
+Q34: How would you scale this application for 10,000 concurrent users?
+A: Multi-tier approach:
+   1. Database: Migrate to PostgreSQL with connection pooling
+   2. Caching: Add Redis for session storage and query caching
+   3. Load Balancing: Multiple Flask instances behind Nginx
+   4. Async Processing: Celery for background tasks (emails, reports)
+   5. CDN: Serve static files from CDN
+   6. Database Optimization: Add indexes on frequently queried columns
+   7. Horizontal Scaling: Deploy on multiple servers
+
+Q35: What are the ACID properties and how does SQLite ensure them?
+A: ACID = Atomicity, Consistency, Isolation, Durability
+   - Atomicity: Transactions are all-or-nothing (commit or rollback)
+   - Consistency: Database remains in valid state (constraints enforced)
+   - Isolation: Concurrent transactions don't interfere
+   - Durability: Committed data survives crashes
+   SQLite ensures ACID through write-ahead logging (WAL) and transaction locks.
+
+Q36: What is the difference between authentication, authorization, and accounting?
+A: AAA framework:
+   - Authentication: Verify identity (login)
+   - Authorization: Verify permissions (what can user do)
+   - Accounting: Track actions (audit logs, admin_actions table)
+   Our system implements authentication (login) and authorization (role-based
+   access). Accounting can be added via admin_actions table.
+
+Q37: How would you implement two-factor authentication (2FA)?
+A: Using TOTP (Time-based One-Time Password):
+   1. Install: pip install pyotp
+   2. Generate secret key for user: pyotp.random_base32()
+   3. Show QR code for Google Authenticator
+   4. During login: Request email + password + OTP code
+   5. Verify OTP: totp = pyotp.TOTP(user.otp_secret); totp.verify(input_otp)
+   6. Only proceed if all three are correct
+
+Q38: What testing strategies would you use for this application?
+A: Multi-level testing:
+   1. Unit Tests: Test individual functions (password hashing, validators)
+   2. Integration Tests: Test routes with test client
+   3. Database Tests: Test model relationships and constraints
+   4. UI Tests: Selenium for end-to-end workflows
+   5. Security Tests: Test for SQL injection, CSRF, XSS
+   6. Use pytest framework with fixtures for test database
+
+Q39: How would you implement rate limiting to prevent spam applications?
+A: Using Flask-Limiter:
+   ```python
+   from flask_limiter import Limiter
+   limiter = Limiter(app, key_func=get_remote_address)
+   
+   @app.route('/student/drives/<id>/apply')
+   @limiter.limit("5 per minute")  # Max 5 applications per minute
+   def apply_to_drive(id):
+       ...
+   ```
+   Prevents students from bulk-applying to all drives instantly.
+
+Q40: What are the differences between SQLite, MySQL, and PostgreSQL?
+A: 
+   SQLite: Serverless, file-based, lightweight, limited concurrency, perfect for
+           development and small apps
+   MySQL: Client-server, fast reads, widely used, good for web applications
+   PostgreSQL: Client-server, ACID compliant, advanced features (JSON, arrays),
+               better for complex queries and data integrity
+   
+   Choice depends on scale, complexity, and concurrency requirements.
+
+
+================================================================================
+                          SECTION 7: DEMO SCENARIOS
+================================================================================
+
+Q41: Walk me through a complete application workflow from student registration to selection.
+A: Complete workflow:
+   1. Student registers → account created (auto-approved)
+   2. Student logs in → sees dashboard
+   3. Company registers → account created (pending approval)
+   4. Admin approves company → company can now login
+   5. Company creates placement drive → drive created (pending approval)
+   6. Admin approves drive → drive visible to students
+   7. Student browses drives → sees approved, active drives
+   8. Student applies → application created with status='pending'
+   9. Company views applications → sees all applicants
+   10. Company updates status → pending → shortlisted
+   11. After interviews → company updates → shortlisted → selected
+   12. Student sees "Selected" status in application history
+
+Q42: Demonstrate handling a duplicate application attempt.
+A: Demo steps:
+   1. Login as student
+   2. Apply to Drive #1 → Success message
+   3. Try to apply to same drive again
+   4. System checks: SELECT COUNT(*) WHERE student_id=X AND drive_id=1
+   5. Count > 0 → Flash error "You have already applied to this drive"
+   6. Database constraint also prevents: UNIQUE(student_id, drive_id)
+
+Q43: Show how admin controls system integrity.
+A: Admin capabilities demo:
+   1. Review pending companies → approve legitimate, reject suspicious
+   2. Review pending drives → approve valid, reject inappropriate
+   3. Monitor application statistics → identify anomalies
+   4. Blacklist spamming students → prevent further applications
+   5. Deactivate fraudulent drives → remove from student view
+   6. View audit trail → who did what and when
+
+
+================================================================================
+                              CONCLUSION
+================================================================================
+
+These questions cover:
+- Database design rationale
+- Security implementation
+- Business logic workflows
+- Flask framework concepts
+- Scalability considerations
+- Real-world scenarios
+
+Preparation Tips:
+1. Understand WHY each design decision was made
+2. Be ready to explain alternatives and trade-offs
+3. Practice explaining technical concepts in simple language
+4. Know the complete user workflow for each role
+5. Be prepared to make live changes during demo
+
+Good luck with your viva!

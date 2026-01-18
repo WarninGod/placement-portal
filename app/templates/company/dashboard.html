@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Company Dashboard{% endblock %}
+{% block content %}
+<h2>Company Dashboard</h2>
+
+{% if not current_user.is_approved %}
+<div class="alert alert-warning">
+  <strong>Pending Approval:</strong> Your company account is awaiting admin approval. You cannot create drives until approved.
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-bg-primary">
+      <div class="card-body">
+        <h6 class="card-title">Total Drives</h6>
+        <p class="card-text display-6">{{ stats.total_drives }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-bg-success">
+      <div class="card-body">
+        <h6 class="card-title">Active Drives</h6>
+        <p class="card-text display-6">{{ stats.active_drives }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-bg-warning">
+      <div class="card-body">
+        <h6 class="card-title">Pending Approval</h6>
+        <p class="card-text display-6">{{ stats.pending_drives }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-bg-info">
+      <div class="card-body">
+        <h6 class="card-title">Total Applications</h6>
+        <p class="card-text display-6">{{ stats.total_applications }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title">{{ profile.company_name if profile else current_user.email }}</h5>
+    <p class="card-text">
+      {% if profile %}
+        <strong>Industry:</strong> {{ profile.industry or 'N/A' }} | 
+        <strong>Location:</strong> {{ profile.location or 'N/A' }}
+      {% endif %}
+    </p>
+    <div class="btn-group">
+      <a href="{{ url_for('company.profile') }}" class="btn btn-outline-secondary">View Profile</a>
+      {% if current_user.is_approved %}
+      <a href="{{ url_for('company.drives') }}" class="btn btn-primary">Manage Drives</a>
+      <a href="{{ url_for('company.create_drive') }}" class="btn btn-success">Create New Drive</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if drives and current_user.is_approved %}
+<div class="card">
+  <div class="card-header">
+    <h5>Recent Drives</h5>
+  </div>
+  <div class="card-body">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Deadline</th>
+          <th>Applications</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for drive in drives[:5] %}
+        <tr>
+          <td>{{ drive.title }}</td>
+          <td>
+            {% if not drive.is_approved %}
+              <span class="badge bg-warning">Pending</span>
+            {% elif not drive.is_active %}
+              <span class="badge bg-secondary">Closed</span>
+            {% else %}
+              <span class="badge bg-success">Active</span>
+            {% endif %}
+          </td>
+          <td>{{ drive.application_deadline.strftime('%Y-%m-%d') if drive.application_deadline else 'N/A' }}</td>
+          <td>
+            <a href="{{ url_for('company.drive_applications', drive_id=drive.id) }}">
+              {{ drive.applications|list|length }} applications
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if drives|length > 5 %}
+    <a href="{{ url_for('company.drives') }}" class="btn btn-outline-primary btn-sm">View All Drives</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Student Dashboard{% endblock %}
+{% block content %}
+<h2>Student Dashboard</h2>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card text-bg-primary mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Total Applications</h5>
+        <p class="card-text display-6">{{ total_apps }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-bg-success mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Selected</h5>
+        <p class="card-text display-6">{{ selected }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-bg-warning mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Pending</h5>
+        <p class="card-text display-6">{{ pending }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-body">
+    <h5 class="card-title">Welcome, {{ profile.full_name }}</h5>
+    <p class="card-text">
+      <strong>Department:</strong> {{ profile.department }} | 
+      <strong>Roll No:</strong> {{ profile.roll_number }} |
+      <strong>CGPA:</strong> {{ profile.cgpa or 'N/A' }}
+    </p>
+    <div class="btn-group">
+      <a href="{{ url_for('student.profile') }}" class="btn btn-outline-secondary">My Profile</a>
+      <a href="{{ url_for('student.drives') }}" class="btn btn-outline-primary">Browse Drives</a>
+      <a href="{{ url_for('student.applications') }}" class="btn btn-outline-info">View Applications</a>
+    </div>
+  </div>
+</div>
+
+{% if not profile.resume_filename %}
+<div class="alert alert-warning mt-3">
+  <strong>Reminder:</strong> You haven't uploaded your resume yet. 
+  <a href="{{ url_for('student.profile') }}">Upload now</a> to apply to placement drives.
+</div>
+{% endif %}
+{% endblock %}

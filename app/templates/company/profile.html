@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Company Profile{% endblock %}
+
+{% block content %}
+<h2>Company Profile</h2>
+<a href="{{ url_for('company.dashboard') }}" class="btn btn-secondary mb-3">Back to Dashboard</a>
+
+{% if profile %}
+<div class="card">
+  <div class="card-body">
+    <h4 class="card-title">{{ profile.company_name }}</h4>
+    <hr>
+    <div class="row">
+      <div class="col-md-6">
+        <p><strong>Industry:</strong> {{ profile.industry or 'N/A' }}</p>
+        <p><strong>Location:</strong> {{ profile.location or 'N/A' }}</p>
+        <p><strong>Website:</strong> {{ profile.website or 'N/A' }}</p>
+      </div>
+      <div class="col-md-6">
+        <p><strong>Contact Person:</strong> {{ profile.contact_person or 'N/A' }}</p>
+        <p><strong>Contact Phone:</strong> {{ profile.contact_phone or 'N/A' }}</p>
+        <p><strong>Email:</strong> {{ current_user.email }}</p>
+      </div>
+    </div>
+    <hr>
+    <p><strong>Description:</strong></p>
+    <p>{{ profile.description or 'No description provided.' }}</p>
+    
+    <a href="{{ url_for('company.edit_profile') }}" class="btn btn-primary mt-3">Edit Profile</a>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <h5>Account Status</h5>
+  </div>
+  <div class="card-body">
+    <p><strong>Approval Status:</strong> 
+      {% if current_user.is_approved %}
+        <span class="badge bg-success">Approved</span>
+      {% else %}
+        <span class="badge bg-warning">Pending Approval</span>
+      {% endif %}
+    </p>
+    <p><strong>Account Status:</strong> 
+      {% if current_user.is_blacklisted %}
+        <span class="badge bg-danger">Blacklisted</span>
+      {% elif current_user.is_active %}
+        <span class="badge bg-success">Active</span>
+      {% else %}
+        <span class="badge bg-secondary">Inactive</span>
+      {% endif %}
+    </p>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-warning">Profile not found. Please contact admin.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<h2>Edit Student Profile</h2>
+<a href="{{ url_for('student.profile') }}" class="btn btn-secondary mb-3">Back to Profile</a>
+
+<div class="card">
+  <div class="card-body">
+    <form method="POST">
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="full_name" class="form-label">Full Name *</label>
+          <input type="text" class="form-control" id="full_name" name="full_name" value="{{ profile.full_name }}" required>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label for="roll_number" class="form-label">Roll Number *</label>
+          <input type="text" class="form-control" id="roll_number" name="roll_number" value="{{ profile.roll_number }}" required readonly>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="department" class="form-label">Department *</label>
+          <select class="form-select" id="department" name="department" required>
+            <option value="Computer Science" {% if profile.department == 'Computer Science' %}selected{% endif %}>Computer Science</option>
+            <option value="Information Technology" {% if profile.department == 'Information Technology' %}selected{% endif %}>Information Technology</option>
+            <option value="Electronics" {% if profile.department == 'Electronics' %}selected{% endif %}>Electronics</option>
+            <option value="Electrical" {% if profile.department == 'Electrical' %}selected{% endif %}>Electrical</option>
+            <option value="Mechanical" {% if profile.department == 'Mechanical' %}selected{% endif %}>Mechanical</option>
+            <option value="Civil" {% if profile.department == 'Civil' %}selected{% endif %}>Civil</option>
+            <option value="Other" {% if profile.department == 'Other' %}selected{% endif %}>Other</option>
+          </select>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label for="year" class="form-label">Year of Study</label>
+          <select class="form-select" id="year" name="year">
+            <option value="1" {% if profile.year == 1 %}selected{% endif %}>1st Year</option>
+            <option value="2" {% if profile.year == 2 %}selected{% endif %}>2nd Year</option>
+            <option value="3" {% if profile.year == 3 %}selected{% endif %}>3rd Year</option>
+            <option value="4" {% if profile.year == 4 %}selected{% endif %}>4th Year</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label for="cgpa" class="form-label">CGPA</label>
+          <input type="number" step="0.01" min="0" max="10" class="form-control" id="cgpa" name="cgpa" value="{{ profile.cgpa or '' }}">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+          <label for="tenth_marks" class="form-label">10th Marks (%)</label>
+          <input type="number" step="0.01" min="0" max="100" class="form-control" id="tenth_marks" name="tenth_marks" value="{{ profile.tenth_marks or '' }}">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+          <label for="twelfth_marks" class="form-label">12th Marks (%)</label>
+          <input type="number" step="0.01" min="0" max="100" class="form-control" id="twelfth_marks" name="twelfth_marks" value="{{ profile.twelfth_marks or '' }}">
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="phone" class="form-label">Phone Number</label>
+          <input type="tel" class="form-control" id="phone" name="phone" value="{{ profile.phone or '' }}">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+          <label for="dob" class="form-label">Date of Birth</label>
+          <input type="date" class="form-control" id="dob" name="dob" value="{{ profile.dob.strftime('%Y-%m-%d') if profile.dob else '' }}">
+        </div>
+      </div>
+      
+      <div class="mb-3">
+        <label for="address" class="form-label">Address</label>
+        <textarea class="form-control" id="address" name="address" rows="2">{{ profile.address or '' }}</textarea>
+      </div>
+      
+      <div class="mb-3">
+        <label for="skills" class="form-label">Skills</label>
+        <textarea class="form-control" id="skills" name="skills" rows="2" placeholder="e.g., Python, Java, SQL, Data Analysis">{{ profile.skills or '' }}</textarea>
+      </div>
+      
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+      <a href="{{ url_for('student.profile') }}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

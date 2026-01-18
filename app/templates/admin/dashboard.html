@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<h2>Admin Dashboard</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-bg-primary">
+      <div class="card-body">
+        <h5>Students</h5>
+        <p class="display-6">{{ stats.students }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card text-bg-success">
+      <div class="card-body">
+        <h5>Companies</h5>
+        <p class="display-6">{{ stats.companies }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card text-bg-warning">
+      <div class="card-body">
+        <h5>Pending Companies</h5>
+        <p class="display-6">{{ stats.pending_companies }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card text-bg-info">
+      <div class="card-body">
+        <h5>Pending Drives</h5>
+        <p class="display-6">{{ stats.pending_drives }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-bg-secondary">
+      <div class="card-body">
+        <h5>Active Drives</h5>
+        <p class="display-6">{{ stats.active_drives }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card text-bg-dark">
+      <div class="card-body">
+        <h5>Applications</h5>
+        <p class="display-6">{{ stats.applications }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<h4>Admin Actions</h4>
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <a href="{{ url_for('admin.pending_companies') }}" class="btn btn-warning w-100">Approve Companies</a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('admin.pending_drives') }}" class="btn btn-info w-100">Approve Drives</a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('admin.students') }}" class="btn btn-primary w-100">View/Blacklist Students</a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('admin.companies') }}" class="btn btn-success w-100">View/Blacklist Companies</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-3">
+    <a href="{{ url_for('admin.applications') }}" class="btn btn-dark w-100">View All Applications</a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('admin.drives') }}" class="btn btn-secondary w-100">View All Drives</a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('admin.statistics') }}" class="btn btn-outline-primary w-100">📊 View Statistics</a>
+  </div>
+</div>
+{% endblock %}

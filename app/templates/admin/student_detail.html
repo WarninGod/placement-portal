@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Details{% endblock %}
+
+{% block content %}
+<h2>Student Details</h2>
+<a href="{{ url_for('admin.students') }}" class="btn btn-secondary mb-3">Back to Students</a>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>{{ student.full_name }}</h5>
+        {% if user.is_blacklisted %}
+          <span class="badge bg-danger">Blacklisted</span>
+        {% else %}
+          <span class="badge bg-success">Active</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <p><strong>Roll Number:</strong> {{ student.roll_number }}</p>
+            <p><strong>Department:</strong> {{ student.department or 'N/A' }}</p>
+            <p><strong>Year:</strong> {{ student.year or 'N/A' }}</p>
+            <p><strong>CGPA:</strong> {{ student.cgpa or 'N/A' }}</p>
+          </div>
+          <div class="col-md-6">
+            <p><strong>Email:</strong> {{ user.email }}</p>
+            <p><strong>Phone:</strong> {{ student.phone or 'N/A' }}</p>
+            <p><strong>10th Marks:</strong> {{ student.tenth_marks or 'N/A' }}%</p>
+            <p><strong>12th Marks:</strong> {{ student.twelfth_marks or 'N/A' }}%</p>
+          </div>
+        </div>
+        <hr>
+        <p><strong>Skills:</strong> {{ student.skills or 'Not specified' }}</p>
+        <p><strong>Address:</strong> {{ student.address or 'Not specified' }}</p>
+        <p><strong>Registered:</strong> {{ user.created_at.strftime('%d %b %Y') if user.created_at else 'N/A' }}</p>
+        
+        {% if student.resume_filename %}
+        <p><strong>Resume:</strong> <span class="badge bg-success">Uploaded</span></p>
+        {% else %}
+        <p><strong>Resume:</strong> <span class="badge bg-warning">Not uploaded</span></p>
+        {% endif %}
+      </div>
+      <div class="card-footer">
+        <form action="{{ url_for('admin.blacklist_student', user_id=user.id) }}" method="POST" style="display:inline;">
+          {% if user.is_blacklisted %}
+          <button type="submit" class="btn btn-success" onclick="return confirm('Remove from blacklist?')">Remove from Blacklist</button>
+          {% else %}
+          <button type="submit" class="btn btn-danger" onclick="return confirm('Blacklist this student?')">Blacklist Student</button>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">
+        <h6>Application Stats</h6>
+      </div>
+      <div class="card-body">
+        <p><strong>Total Applications:</strong> {{ applications|length }}</p>
+        <p><strong>Pending:</strong> <span class="badge bg-warning">{{ applications|selectattr('status', 'equalto', 'pending')|list|length }}</span></p>
+        <p><strong>Shortlisted:</strong> <span class="badge bg-info">{{ applications|selectattr('status', 'equalto', 'shortlisted')|list|length }}</span></p>
+        <p><strong>Selected:</strong> <span class="badge bg-success">{{ applications|selectattr('status', 'equalto', 'selected')|list|length }}</span></p>
+        <p><strong>Rejected:</strong> <span class="badge bg-danger">{{ applications|selectattr('status', 'equalto', 'rejected')|list|length }}</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if applications %}
+<div class="card mt-3">
+  <div class="card-header">
+    <h5>Application History</h5>
+  </div>
+  <div class="card-body">
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Drive</th>
+          <th>Company</th>
+          <th>Status</th>
+          <th>Applied On</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in applications %}
+        <tr>
+          <td>{{ app.drive.title if app.drive else 'N/A' }}</td>
+          <td>{{ app.drive.company.company_name if app.drive and app.drive.company else 'N/A' }}</td>
+          <td>
+            {% if app.status == 'selected' %}
+              <span class="badge bg-success">Selected</span>
+            {% elif app.status == 'shortlisted' %}
+              <span class="badge bg-info">Shortlisted</span>
+            {% elif app.status == 'pending' %}
+              <span class="badge bg-warning">Pending</span>
+            {% else %}
+              <span class="badge bg-danger">Rejected</span>
+            {% endif %}
+          </td>
+          <td>{{ app.applied_at.strftime('%d %b %Y') if app.applied_at else 'N/A' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

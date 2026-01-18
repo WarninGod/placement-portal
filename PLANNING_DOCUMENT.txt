@@ -1,0 +1,1009 @@
+================================================================================
+         PLACEMENT PORTAL APPLICATION - COMPREHENSIVE PLANNING DOCUMENT
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+A web-based Placement Portal Application for educational institutes to manage
+campus recruitment activities involving three primary roles: Admin (Placement
+Cell), Company Representatives, and Students. The system replaces manual
+processes with automated workflows, ensuring data integrity, traceability, and
+role-based access control.
+
+TECH STACK
+================================================================================
+Backend Framework     : Flask (Python)
+Frontend Technology   : Jinja2 Templates + HTML + CSS + Bootstrap
+Database             : SQLite (created programmatically)
+JavaScript Usage     : Minimal (only for UI enhancements, no core logic)
+Deployment          : Local machine execution
+
+
+1. SYSTEM ARCHITECTURE
+================================================================================
+
+1.1 Overall Application Flow
+----------------------------
+User Request → Flask Route (with role verification) → Business Logic Layer →
+Database Operations → Response Rendering (Jinja2) → HTML Response
+
+1.2 Role-Based Module Separation
+--------------------------------
+- Authentication Module: Handles login/logout for all roles
+- Admin Module: Full system control, approvals, management
+- Company Module: Company-specific operations post-approval
+- Student Module: Student-specific operations (apply, view status)
+- Shared Module: Common utilities, decorators, helpers
+
+1.3 Request Processing Flow
+---------------------------
+1. User accesses URL
+2. Flask router matches route
+3. Authentication decorator verifies login status
+4. Role-based decorator verifies user permissions
+5. Controller function processes request
+6. Database operations executed via SQLAlchemy
+7. Business logic applied (validations, rules)
+8. Response prepared (data + template)
+9. Jinja2 renders HTML with data
+10. HTML returned to browser
+
+
+2. DATABASE DESIGN (CRITICAL SECTION)
+================================================================================
+
+2.1 Complete Table Structure
+-----------------------------
+
+TABLE 1: users
+--------------
+Purpose: Central authentication table for all system users
+Fields:
+- id (INTEGER, PRIMARY KEY, AUTOINCREMENT)
+- email (TEXT, UNIQUE, NOT NULL)
+- password_hash (TEXT, NOT NULL)
+- role (TEXT, NOT NULL) → Values: 'admin', 'company', 'student'
+- is_active (BOOLEAN, DEFAULT TRUE)
+- is_approved (BOOLEAN, DEFAULT FALSE)
+- is_blacklisted (BOOLEAN, DEFAULT FALSE)
+- created_at (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+- updated_at (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+
+Relationships:
+- One-to-One with company_profiles (if role='company')
+- One-to-One with student_profiles (if role='student')
+
+Business Rules Enforced:
+- Email must be unique (prevents duplicate accounts)
+- Admin users: is_approved=TRUE, is_active=TRUE (pre-set)
+- Company users: is_approved=FALSE initially (requires admin approval)
+- Student users: is_approved=TRUE, is_active=TRUE (auto-approved)
+- Blacklisted users cannot login (checked during authentication)
+
+----------------------------
+
+TABLE 2: company_profiles
+--------------------------
+Purpose: Extended profile information for company users
+Fields:
+- id (INTEGER, PRIMARY KEY, AUTOINCREMENT)
+- user_id (INTEGER, FOREIGN KEY → users.id, UNIQUE, NOT NULL)
+- company_name (TEXT, NOT NULL)
+- industry (TEXT)
+- location (TEXT)
+- website (TEXT)
+- contact_person (TEXT)
+- contact_phone (TEXT)
+- description (TEXT)
+- created_at (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+
+Relationships:
+- Belongs to one User (user_id → users.id)
+- Has many PlacementDrives (one-to-many)
+
+Business Rules Enforced:
+- One user can have only one company profile (UNIQUE constraint on user_id)
+- Cannot create placement drives unless user.is_approved=TRUE
+
+----------------------------
+
+TABLE 3: student_profiles
+--------------------------
+Purpose: Extended profile information for student users
+Fields:
+- id (INTEGER, PRIMARY KEY, AUTOINCREMENT)
+- user_id (INTEGER, FOREIGN KEY → users.id, UNIQUE, NOT NULL)
+- full_name (TEXT, NOT NULL)
+- roll_number (TEXT, UNIQUE, NOT NULL)
+- department (TEXT, NOT NULL)
+- graduation_year (INTEGER, NOT NULL)
+- cgpa (REAL)
+- resume_filename (TEXT)
+- phone (TEXT)
+- skills (TEXT)
+- created_at (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+
+Relationships:
+- Belongs to one User (user_id → users.id)
+- Has many Applications (one-to-many)
+
+Business Rules Enforced:
+- One user can have only one student profile (UNIQUE constraint on user_id)
+- Roll number must be unique across all students
+- Can apply to drives only if user.is_active=TRUE and not blacklisted
+
+----------------------------
+
+TABLE 4: placement_drives
+--------------------------
+Purpose: Job/internship opportunities posted by companies
+Fields:
+- id (INTEGER, PRIMARY KEY, AUTOINCREMENT)
+- company_id (INTEGER, FOREIGN KEY → company_profiles.id, NOT NULL)
+- title (TEXT, NOT NULL)
+- description (TEXT, NOT NULL)
+- job_type (TEXT) → Values: 'Full-time', 'Internship', 'Part-time'
+- location (TEXT)
+- package (TEXT) → Salary/stipend information
+- eligibility_criteria (TEXT)
+- required_skills (TEXT)
+- application_deadline (DATE, NOT NULL)
+- is_approved (BOOLEAN, DEFAULT FALSE)
+- is_active (BOOLEAN, DEFAULT TRUE)
+- created_at (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+- updated_at (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+
+Relationships:
+- Belongs to one Company (company_id → company_profiles.id)
+- Has many Applications (one-to-many)
+
+Business Rules Enforced:
+- Only approved companies can create drives (checked in controller)
+- Drives visible to students only if is_approved=TRUE
+- Students cannot apply if is_active=FALSE or deadline passed
+- Inactive drives do not appear in student listings
+
+----------------------------
+
+TABLE 5: applications
+----------------------
+Purpose: Records student applications to placement drives (many-to-many resolver)
+Fields:
+- id (INTEGER, PRIMARY KEY, AUTOINCREMENT)
+- student_id (INTEGER, FOREIGN KEY → student_profiles.id, NOT NULL)
+- drive_id (INTEGER, FOREIGN KEY → placement_drives.id, NOT NULL)
+- status (TEXT, DEFAULT 'pending') → Values: 'pending', 'shortlisted', 
+          'rejected', 'selected'
+- applied_at (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+- updated_at (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+- remarks (TEXT)
+
+Relationships:
+- Belongs to one Student (student_id → student_profiles.id)
+- Belongs to one PlacementDrive (drive_id → placement_drives.id)
+
+Constraints:
+- UNIQUE(student_id, drive_id) → Prevents duplicate applications
+
+Business Rules Enforced:
+- One student can apply only once per drive (UNIQUE constraint)
+- Status transitions: pending → shortlisted/rejected → selected/rejected
+- Application history is immutable (no deletion, only status updates)
+- Students can view all their applications (past and present)
+
+----------------------------
+
+TABLE 6: admin_actions (OPTIONAL - for audit trail)
+---------------------------------------------------
+Purpose: Log all admin actions for traceability
+Fields:
+- id (INTEGER, PRIMARY KEY, AUTOINCREMENT)
+- admin_id (INTEGER, FOREIGN KEY → users.id, NOT NULL)
+- action_type (TEXT) → 'approve_company', 'approve_drive', 'blacklist_user'
+- target_id (INTEGER) → ID of affected entity
+- target_type (TEXT) → 'company', 'drive', 'student'
+- timestamp (DATETIME, DEFAULT CURRENT_TIMESTAMP)
+- remarks (TEXT)
+
+Business Rules:
+- Provides complete audit trail for viva defense
+- Shows who approved what and when
+
+
+2.2 Relationship Diagram (Textual)
+-----------------------------------
+users (1) ←→ (1) company_profiles
+users (1) ←→ (1) student_profiles
+company_profiles (1) ←→ (many) placement_drives
+student_profiles (1) ←→ (many) applications
+placement_drives (1) ←→ (many) applications
+
+Many-to-Many Resolution:
+- students ←→ placement_drives (resolved via applications table)
+
+
+2.3 Why Each Table Exists
+--------------------------
+users: Central authentication; single source for login credentials and role
+company_profiles: Company-specific data separation (normalized design)
+student_profiles: Student-specific data separation (normalized design)
+placement_drives: Core business entity (job postings)
+applications: Many-to-many resolver + application lifecycle tracking
+admin_actions: Audit trail (accountability and traceability)
+
+
+2.4 How Relationships Enforce Business Rules
+---------------------------------------------
+1. Foreign Keys: Ensure referential integrity (no orphaned records)
+2. Unique Constraints: Prevent duplicate applications, emails, roll numbers
+3. Boolean Flags: Control access (is_approved, is_active, is_blacklisted)
+4. Status Enum: Track application lifecycle with valid transitions
+5. Timestamps: Maintain complete history (created_at, updated_at, applied_at)
+
+
+3. AUTHENTICATION & AUTHORIZATION PLAN
+================================================================================
+
+3.1 Login Flow for Each Role
+-----------------------------
+
+ADMIN LOGIN:
+1. Admin accesses /login (no /register route for admin)
+2. Enters email and password
+3. System verifies credentials against users table
+4. Checks role='admin'
+5. Creates session with user_id and role
+6. Redirects to /admin/dashboard
+
+COMPANY LOGIN:
+1. Company registers via /company/register
+2. Account created with is_approved=FALSE
+3. Admin approves company (sets is_approved=TRUE)
+4. Company can now login via /login
+5. System verifies credentials + is_approved=TRUE + not blacklisted
+6. Creates session, redirects to /company/dashboard
+
+STUDENT LOGIN:
+1. Student registers via /student/register
+2. Account created with is_approved=TRUE (auto-approved)
+3. Student can immediately login via /login
+4. System verifies credentials + is_active=TRUE + not blacklisted
+5. Creates session, redirects to /student/dashboard
+
+
+3.2 Password Security
+----------------------
+- Passwords stored as hashes using werkzeug.security.generate_password_hash
+- Hash algorithm: pbkdf2:sha256 (default, secure)
+- Password verification: check_password_hash(stored_hash, input_password)
+- Never store plain text passwords
+- Minimum password length: 6 characters (enforced in registration form)
+
+
+3.3 Role-Based Route Protection
+--------------------------------
+Implementation using Flask decorators:
+
+@login_required:
+- Checks if user is logged in (session contains user_id)
+- Redirects to /login if not authenticated
+
+@role_required('admin'):
+- Checks if logged-in user has role='admin'
+- Returns 403 Forbidden if role mismatch
+
+@role_required('company'):
+- Checks if logged-in user has role='company' AND is_approved=TRUE
+- Returns 403 if not approved or wrong role
+
+@role_required('student'):
+- Checks if logged-in user has role='student'
+- Returns 403 if wrong role
+
+Decorator Chain Example:
+@app.route('/admin/dashboard')
+@login_required
+@role_required('admin')
+def admin_dashboard():
+    # Only logged-in admins can access
+
+
+3.4 Blocking Inactive/Blacklisted Users
+----------------------------------------
+During login, system checks:
+1. Credentials valid? (email + password hash match)
+2. Is user blacklisted? (is_blacklisted=TRUE → deny login)
+3. Is user active? (is_active=FALSE → deny login)
+4. If company: Is approved? (is_approved=FALSE → deny login)
+
+Flash message examples:
+- "Your account is pending approval"
+- "Your account has been deactivated"
+- "Access denied"
+
+
+4. APPROVAL WORKFLOWS
+================================================================================
+
+4.1 Company Registration → Approval → Login Access
+---------------------------------------------------
+Step 1: Company Registration
+- Company visits /company/register
+- Fills form: email, password, company details
+- System creates:
+  * User record: role='company', is_approved=FALSE
+  * Company profile record linked to user
+- Flash message: "Registration successful. Awaiting admin approval."
+
+Step 2: Admin Reviews Pending Companies
+- Admin logs in and visits /admin/pending-companies
+- Sees list of companies with is_approved=FALSE
+- Clicks "Approve" button for verified company
+
+Step 3: Admin Approves Company
+- System updates: users.is_approved = TRUE (WHERE user_id = company_user_id)
+- Flash message: "Company approved successfully"
+- (Optional) Email notification sent to company
+
+Step 4: Company Can Now Login
+- Company visits /login
+- Enters credentials
+- Login succeeds (is_approved=TRUE check passes)
+- Redirected to /company/dashboard
+
+
+4.2 Placement Drive Creation → Approval → Student Visibility
+-------------------------------------------------------------
+Step 1: Company Creates Drive
+- Approved company visits /company/create-drive
+- Fills form: title, description, deadline, eligibility, etc.
+- System creates placement_drives record with is_approved=FALSE
+- Flash message: "Drive created. Awaiting admin approval."
+
+Step 2: Admin Reviews Pending Drives
+- Admin visits /admin/pending-drives
+- Sees list of drives with is_approved=FALSE
+- Verifies drive details are appropriate
+
+Step 3: Admin Approves Drive
+- Admin clicks "Approve"
+- System updates: placement_drives.is_approved = TRUE
+- Flash message: "Drive approved and now visible to students"
+
+Step 4: Students See Approved Drive
+- Students visit /student/browse-drives
+- Query: SELECT * FROM placement_drives WHERE is_approved=TRUE AND is_active=TRUE
+  AND application_deadline >= CURRENT_DATE
+- Approved drives now appear in listings
+
+
+4.3 Drive Closure Logic
+------------------------
+Automatic Closure (deadline passed):
+- Query checks: application_deadline < CURRENT_DATE
+- Such drives hidden from student browse listings
+- Applications to expired drives rejected with error message
+
+Manual Closure (admin/company action):
+- Company or admin sets is_active=FALSE
+- Drive immediately removed from student listings
+- Existing applications remain (no deletion)
+
+Status Display:
+- Active drives: Green badge "Active"
+- Closed drives: Red badge "Closed"
+- Expired drives: Gray badge "Expired"
+
+
+5. FUNCTIONAL MAPPING PER ROLE
+================================================================================
+
+5.1 ADMIN ROLE
+--------------
+
+Dashboard Contents:
+- Total registered students (count)
+- Total registered companies (count)
+- Pending company approvals (count)
+- Pending drive approvals (count)
+- Total active drives (count)
+- Total applications received (count)
+- Recent activities (last 10 admin actions)
+
+Allowed Actions:
+✓ View all students (with search and filter)
+✓ View all companies (with search and filter)
+✓ Approve pending company registrations
+✓ Approve pending placement drives
+✓ View all placement drives (approved + pending)
+✓ View all applications (all students, all drives)
+✓ Blacklist/unblacklist students
+✓ Blacklist/unblacklist companies
+✓ Deactivate/reactivate drives
+✓ View detailed statistics and reports
+✓ Export data to CSV (bonus feature)
+
+Restricted Actions:
+✗ Cannot register (pre-existing superuser only)
+✗ Cannot apply to drives
+✗ Cannot create placement drives
+
+Data Access:
+- Full access to all tables
+- Can view sensitive information (passwords excluded)
+
+
+5.2 COMPANY ROLE
+----------------
+
+Dashboard Contents (Post-Approval Only):
+- Company profile summary
+- Total drives created (count)
+- Active drives (count)
+- Total applications received (count)
+- Recent applications (last 10)
+- Drive-wise application statistics
+
+Allowed Actions:
+✓ Register via /company/register
+✓ Login (only if is_approved=TRUE)
+✓ View and edit own company profile
+✓ Create new placement drives
+✓ View own drives (all statuses)
+✓ View applications for own drives
+✓ Update application status (pending → shortlisted/rejected → selected)
+✓ Add remarks to applications
+✓ Close/reopen own drives (toggle is_active)
+
+Restricted Actions:
+✗ Cannot view other companies' drives or applications
+✗ Cannot approve own drives (admin privilege)
+✗ Cannot access student profiles directly
+✗ Cannot modify approved drive details (must request admin)
+
+Data Access:
+- Own company profile (full access)
+- Own placement drives (full access)
+- Applications to own drives only
+- Student profiles: limited view (name, roll number, department, CGPA, resume)
+
+
+5.3 STUDENT ROLE
+----------------
+
+Dashboard Contents:
+- Student profile summary
+- Total applications submitted (count)
+- Pending applications (count)
+- Shortlisted applications (count)
+- Selected applications (count)
+- Rejected applications (count)
+- Recent drive listings (5 newest approved drives)
+
+Allowed Actions:
+✓ Register via /student/register (auto-approved)
+✓ Login immediately after registration
+✓ View and edit own profile
+✓ Upload resume (PDF/DOCX)
+✓ Browse all approved, active drives
+✓ Apply to drives (if eligible and deadline not passed)
+✓ View own application history (all statuses)
+✓ Withdraw application (if status still 'pending')
+✓ Search/filter drives by job type, location, company
+
+Restricted Actions:
+✗ Cannot apply to same drive twice (UNIQUE constraint enforced)
+✗ Cannot apply to unapproved/inactive drives
+✗ Cannot apply after deadline passed
+✗ Cannot view other students' applications
+✗ Cannot modify application status (only company can)
+
+Data Access:
+- Own student profile (full access)
+- Approved, active placement drives (read-only)
+- Own applications (full access)
+- Company profiles: limited view (name, website, description)
+
+
+6. ROUTE & URL DESIGN
+================================================================================
+
+6.1 Authentication Routes (Unprotected)
+----------------------------------------
+GET  /                      → Landing page (public)
+GET  /login                 → Login form (all roles)
+POST /login                 → Process login
+GET  /logout                → Logout (clears session)
+GET  /student/register      → Student registration form
+POST /student/register      → Process student registration
+GET  /company/register      → Company registration form
+POST /company/register      → Process company registration
+
+
+6.2 Admin Routes (Protected: @login_required + @role_required('admin'))
+------------------------------------------------------------------------
+GET  /admin/dashboard              → Admin dashboard with statistics
+GET  /admin/students               → List all students
+GET  /admin/students/<id>          → View student details
+POST /admin/students/<id>/blacklist → Blacklist/unblacklist student
+GET  /admin/companies              → List all companies
+GET  /admin/companies/pending      → List pending company approvals
+POST /admin/companies/<id>/approve → Approve company registration
+POST /admin/companies/<id>/blacklist → Blacklist company
+GET  /admin/drives                 → List all drives (all statuses)
+GET  /admin/drives/pending         → List pending drive approvals
+POST /admin/drives/<id>/approve    → Approve placement drive
+POST /admin/drives/<id>/deactivate → Deactivate drive
+GET  /admin/applications           → View all applications
+GET  /admin/statistics             → Detailed statistics page
+GET  /admin/reports/export         → Export data to CSV (bonus)
+
+
+6.3 Company Routes (Protected: @login_required + @role_required('company'))
+----------------------------------------------------------------------------
+GET  /company/dashboard            → Company dashboard
+GET  /company/profile              → View/edit company profile
+POST /company/profile/update       → Update profile
+GET  /company/drives               → List own drives
+GET  /company/drives/create        → Create drive form
+POST /company/drives/create        → Process drive creation
+GET  /company/drives/<id>          → View drive details + applications
+POST /company/drives/<id>/close    → Close drive (set is_active=FALSE)
+GET  /company/applications/<app_id> → View application details
+POST /company/applications/<app_id>/update → Update application status
+
+
+6.4 Student Routes (Protected: @login_required + @role_required('student'))
+----------------------------------------------------------------------------
+GET  /student/dashboard            → Student dashboard
+GET  /student/profile              → View/edit student profile
+POST /student/profile/update       → Update profile
+POST /student/profile/upload-resume → Upload resume file
+GET  /student/drives               → Browse approved drives
+GET  /student/drives/<id>          → View drive details
+POST /student/drives/<id>/apply    → Apply to drive
+GET  /student/applications         → View own application history
+GET  /student/applications/<id>    → View application details
+POST /student/applications/<id>/withdraw → Withdraw application
+
+
+6.5 Route Protection Summary
+-----------------------------
+Public Routes (No Authentication):
+- /, /login, /student/register, /company/register
+
+Login Required (Any Authenticated User):
+- /logout
+
+Role-Specific (Authentication + Role Check):
+- /admin/*    → Admin only
+- /company/*  → Company only (+ approved check)
+- /student/*  → Student only
+
+
+7. APPLICATION RULES & VALIDATIONS
+================================================================================
+
+7.1 One Student Applies Only Once Per Drive
+--------------------------------------------
+Implementation:
+- Database constraint: UNIQUE(student_id, drive_id) on applications table
+- Before INSERT: Check if application exists
+  Query: SELECT COUNT(*) FROM applications 
+         WHERE student_id=? AND drive_id=?
+- If count > 0: Flash error "You have already applied to this drive"
+- If count = 0: INSERT allowed
+
+Error Handling:
+- Try-Catch on INSERT statement
+- Catch IntegrityError (SQLAlchemy) or sqlite3.IntegrityError
+- Display user-friendly message
+
+
+7.2 Only Approved Companies Create Drives
+------------------------------------------
+Implementation:
+- Route decorator checks: @role_required('company')
+- Inside create_drive controller:
+  current_user = get_current_user_from_session()
+  if not current_user.is_approved:
+      flash("Your company is not yet approved")
+      redirect to /company/dashboard
+
+Additional Check:
+- Form submission validates is_approved=TRUE before INSERT
+
+
+7.3 Only Approved Drives Visible to Students
+---------------------------------------------
+Implementation:
+- Student browse drives query:
+  SELECT * FROM placement_drives
+  WHERE is_approved = TRUE
+    AND is_active = TRUE
+    AND application_deadline >= date('now')
+  ORDER BY created_at DESC
+
+- Unapproved drives never fetched in student queries
+- Direct URL access blocked:
+  If student tries /student/drives/123 where drive not approved:
+  Return 404 or "Drive not found"
+
+
+7.4 Application Status Transitions Are Valid
+---------------------------------------------
+Valid Transitions:
+- pending → shortlisted
+- pending → rejected
+- shortlisted → selected
+- shortlisted → rejected
+
+Invalid Transitions:
+- rejected → selected
+- selected → rejected
+- Any status → pending (no backwards)
+
+Implementation:
+- Controller checks current status before UPDATE
+- If transition invalid:
+  flash("Invalid status transition")
+  return error
+
+
+7.5 Complete Application History Maintained
+--------------------------------------------
+Implementation:
+- No DELETE operations on applications table
+- Only UPDATE status and updated_at timestamp
+- Optional: Create application_history table for audit trail
+  * Logs every status change with timestamp and changed_by
+
+Query for History:
+- SELECT * FROM applications 
+  WHERE student_id = ? 
+  ORDER BY applied_at DESC
+
+Display:
+- Show all applications (pending, rejected, selected)
+- Color coding: Green (selected), Yellow (pending), Red (rejected)
+
+
+8. FOLDER & FILE STRUCTURE
+================================================================================
+
+placement_portal/
+│
+├── app/
+│   ├── __init__.py                  # Flask app factory, config, extensions
+│   ├── models.py                    # SQLAlchemy database models
+│   ├── decorators.py                # Custom decorators (@role_required)
+│   ├── utils.py                     # Helper functions
+│   │
+│   ├── auth/                        # Authentication blueprint
+│   │   ├── __init__.py
+│   │   └── routes.py                # Login, logout, registration routes
+│   │
+│   ├── admin/                       # Admin blueprint
+│   │   ├── __init__.py
+│   │   └── routes.py                # Admin-specific routes
+│   │
+│   ├── company/                     # Company blueprint
+│   │   ├── __init__.py
+│   │   └── routes.py                # Company-specific routes
+│   │
+│   ├── student/                     # Student blueprint
+│   │   ├── __init__.py
+│   │   └── routes.py                # Student-specific routes
+│   │
+│   ├── templates/                   # Jinja2 templates
+│   │   ├── base.html                # Base template (navbar, footer)
+│   │   ├── index.html               # Landing page
+│   │   ├── login.html               # Login form
+│   │   │
+│   │   ├── admin/                   # Admin templates
+│   │   │   ├── dashboard.html
+│   │   │   ├── students.html
+│   │   │   ├── companies.html
+│   │   │   └── drives.html
+│   │   │
+│   │   ├── company/                 # Company templates
+│   │   │   ├── dashboard.html
+│   │   │   ├── profile.html
+│   │   │   ├── create_drive.html
+│   │   │   └── applications.html
+│   │   │
+│   │   └── student/                 # Student templates
+│   │       ├── dashboard.html
+│   │       ├── profile.html
+│   │       ├── browse_drives.html
+│   │       └── applications.html
+│   │
+│   └── static/                      # Static files
+│       ├── css/
+│       │   └── style.css            # Custom CSS
+│       ├── js/
+│       │   └── script.js            # Minimal JavaScript
+│       └── uploads/
+│           └── resumes/             # Student resume uploads
+│
+├── config.py                        # Configuration settings
+├── run.py                           # Application entry point
+├── requirements.txt                 # Python dependencies
+└── instance/
+    └── placement.db                 # SQLite database (created programmatically)
+
+
+Purpose of Each File:
+----------------------
+__init__.py:        Initializes Flask app, registers blueprints, configures DB
+models.py:          Defines all database tables as SQLAlchemy models
+decorators.py:      Contains @login_required and @role_required decorators
+utils.py:           Helper functions (password hashing, file uploads, etc.)
+routes.py:          Route handlers for each blueprint
+config.py:          Environment-specific settings (database URI, secret key)
+run.py:             Entry point to start Flask development server
+
+
+Blueprint Usage:
+----------------
+Why Blueprints?
+- Modular code organization by user role
+- Easier maintenance and testing
+- Clear separation of concerns
+- URL prefixes for cleaner routing
+
+Blueprint Registration (in app/__init__.py):
+- app.register_blueprint(auth_bp, url_prefix='/')
+- app.register_blueprint(admin_bp, url_prefix='/admin')
+- app.register_blueprint(company_bp, url_prefix='/company')
+- app.register_blueprint(student_bp, url_prefix='/student')
+
+
+9. ADMIN DASHBOARD STATISTICS
+================================================================================
+
+Statistics Displayed:
+---------------------
+1. Total Students Registered
+   Query: SELECT COUNT(*) FROM users WHERE role='student'
+
+2. Total Companies Registered
+   Query: SELECT COUNT(*) FROM users WHERE role='company'
+
+3. Pending Company Approvals
+   Query: SELECT COUNT(*) FROM users 
+          WHERE role='company' AND is_approved=FALSE
+
+4. Pending Drive Approvals
+   Query: SELECT COUNT(*) FROM placement_drives 
+          WHERE is_approved=FALSE
+
+5. Total Active Drives
+   Query: SELECT COUNT(*) FROM placement_drives 
+          WHERE is_approved=TRUE AND is_active=TRUE
+
+6. Total Applications Submitted
+   Query: SELECT COUNT(*) FROM applications
+
+7. Applications by Status
+   - Pending: SELECT COUNT(*) FROM applications WHERE status='pending'
+   - Shortlisted: SELECT COUNT(*) FROM applications WHERE status='shortlisted'
+   - Selected: SELECT COUNT(*) FROM applications WHERE status='selected'
+   - Rejected: SELECT COUNT(*) FROM applications WHERE status='rejected'
+
+8. Top Companies by Applications
+   Query: SELECT c.company_name, COUNT(a.id) as app_count
+          FROM applications a
+          JOIN placement_drives d ON a.drive_id = d.id
+          JOIN company_profiles c ON d.company_id = c.id
+          GROUP BY c.company_name
+          ORDER BY app_count DESC
+          LIMIT 5
+
+9. Recent Activities (Last 10 Actions)
+   Query: SELECT * FROM admin_actions ORDER BY timestamp DESC LIMIT 10
+
+10. Placement Success Rate
+    Formula: (Total Selected / Total Applications) × 100
+
+
+Visual Representation:
+----------------------
+- Use Bootstrap cards for count statistics
+- Use progress bars for percentage-based stats
+- Use tables for recent activities
+- Use badges for status indicators (approved, pending, rejected)
+
+
+10. OPTIONAL / BONUS FEATURES (PLAN ONLY)
+================================================================================
+
+10.1 Placement Statistics
+--------------------------
+Additional Stats:
+- Department-wise placement rate
+- Company-wise selection rate
+- Average package offered
+- Most sought-after skills
+- Timeline graph (applications over months)
+
+Implementation:
+- Create /admin/statistics route
+- Complex SQL queries with JOINs and aggregations
+- Display using Bootstrap cards and tables
+
+
+10.2 Export Reports
+--------------------
+Functionality:
+- Export student list to CSV
+- Export drive applications to CSV
+- Export company list to CSV
+
+Implementation:
+- Use Python csv module
+- Generate CSV in-memory
+- Return as downloadable file response
+- Route: /admin/reports/export?type=students
+
+
+10.3 JSON APIs
+--------------
+RESTful Endpoints:
+- GET  /api/drives         → List all approved drives (JSON)
+- GET  /api/drives/<id>    → Drive details (JSON)
+- POST /api/apply          → Submit application (JSON response)
+
+Implementation:
+- Separate blueprint: api/
+- Return jsonify(data) instead of render_template
+- Add authentication via API keys or JWT (advanced)
+
+
+10.4 Charts (ChartJS)
+---------------------
+Charts to Display:
+- Applications over time (Line chart)
+- Applications by status (Pie chart)
+- Top companies (Bar chart)
+- Department-wise placement (Doughnut chart)
+
+Implementation:
+- Include ChartJS via CDN in base.html
+- Pass data from Flask to JavaScript via Jinja2
+- Render charts on dashboard pages
+
+
+11. ACADEMIC & VIVA PREPARATION
+================================================================================
+
+11.1 Key Design Decisions & Justifications
+-------------------------------------------
+
+Decision 1: Using SQLite Instead of MySQL/PostgreSQL
+Justification:
+- Lightweight, no separate server installation required
+- Sufficient for college-level project with limited users
+- Easy to demonstrate on any machine (portable)
+- Programmatic creation simplifies setup
+
+Decision 2: Role-Based Access Control (RBAC)
+Justification:
+- Security: Users can only access their permitted resources
+- Separation of concerns: Each role has distinct responsibilities
+- Prevents unauthorized data access
+- Industry-standard security practice
+
+Decision 3: Approval Workflows for Companies and Drives
+Justification:
+- Admin oversight ensures quality control
+- Prevents spam or fraudulent companies
+- Validates drive details before student visibility
+- Mirrors real-world placement cell processes
+
+Decision 4: Unique Constraint on (student_id, drive_id)
+Justification:
+- Database-level enforcement (cannot be bypassed)
+- Prevents duplicate applications even if UI fails
+- Ensures data integrity
+- Standard many-to-many relationship pattern
+
+Decision 5: Password Hashing (Never Plain Text)
+Justification:
+- Security best practice (OWASP guidelines)
+- Protects user credentials even if database compromised
+- Cannot reverse-engineer passwords from hashes
+- Legal/ethical requirement for any system storing passwords
+
+Decision 6: Flask Blueprints for Modular Organization
+Justification:
+- Scalability: Easy to add new features
+- Maintainability: Clear code organization
+- Team collaboration: Different developers can work on different modules
+- Testing: Each blueprint can be tested independently
+
+Decision 7: Jinja2 Template Inheritance
+Justification:
+- DRY principle (Don't Repeat Yourself)
+- Consistent UI across all pages
+- Easy to update navbar/footer globally
+- Reduces code duplication
+
+Decision 8: Soft Deletion (Flags Instead of DELETE)
+Justification:
+- Data preservation for audit trails
+- Can recover from mistakes
+- Historical reporting remains accurate
+- Compliance with data retention policies
+
+
+11.2 Key Viva Questions (see VIVA_QUESTIONS.txt)
+-------------------------------------------------
+(Stored separately as requested)
+
+
+11.3 Live Demo Change Scenarios
+--------------------------------
+
+Change 1: Add New Field to Student Profile
+Steps:
+1. Add column to student_profiles model (e.g., linkedin_url)
+2. Run db.create_all() or migration
+3. Update registration form HTML
+4. Update profile display template
+5. Demonstrate: Register new student with LinkedIn URL
+
+Change 2: Add Email Notification on Approval
+Steps:
+1. Install flask-mail extension
+2. Configure SMTP settings in config.py
+3. Add send_email() function in utils.py
+4. Call send_email() after company approval
+5. Demonstrate: Approve company, check email
+
+Change 3: Add Search Filter on Student Browse Drives
+Steps:
+1. Add search form in browse_drives.html
+2. Modify route to accept query parameter
+3. Update SQL query with WHERE clause (LIKE '%keyword%')
+4. Demonstrate: Search for "Software Engineer" drives
+
+Change 4: Add Admin Action to Close All Expired Drives
+Steps:
+1. Create /admin/close-expired-drives route
+2. Query: UPDATE placement_drives SET is_active=FALSE 
+         WHERE application_deadline < date('now')
+3. Add button in admin dashboard
+4. Demonstrate: Click button, verify drives closed
+
+Change 5: Export Student Applications to CSV
+Steps:
+1. Create /student/export-applications route
+2. Query all applications for current student
+3. Generate CSV using csv.writer
+4. Return file as attachment
+5. Demonstrate: Download CSV, open in Excel
+
+
+================================================================================
+                              END OF PLANNING DOCUMENT
+================================================================================
+
+This planning document covers all aspects of the Placement Portal Application
+architecture. The system is designed to be:
+- Secure (RBAC, password hashing, approval workflows)
+- Scalable (modular blueprint structure)
+- Maintainable (clear separation of concerns)
+- Auditable (complete history tracking)
+- User-friendly (role-specific dashboards)
+
+Next Steps:
+1. Implementation of Flask app structure
+2. Database model creation with SQLAlchemy
+3. Route implementation for each blueprint
+4. Template design with Jinja2
+5. Testing and validation
+6. Viva preparation and documentation
+
+Note: All design decisions have clear justifications suitable for academic
+evaluation and viva defense.
