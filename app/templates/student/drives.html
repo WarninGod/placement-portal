@@ -16,6 +16,7 @@
   </thead>
   <tbody>
     {% for drive in drives %}
+    {% set already_applied = applied_drive_ids and drive.id in applied_drive_ids %}
     <tr>
       <td><a href="{{ url_for('student.drive_detail', drive_id=drive.id) }}">{{ drive.title }}</a></td>
       <td>{{ drive.company.company_name }}</td>
@@ -25,9 +26,13 @@
       <td>{{ drive.application_deadline.strftime('%Y-%m-%d') }}</td>
       <td>
         <a href="{{ url_for('student.drive_detail', drive_id=drive.id) }}" class="btn btn-outline-primary btn-sm">View</a>
+        {% if already_applied %}
+        <span class="badge bg-success">Applied</span>
+        {% else %}
         <form method="post" action="{{ url_for('student.apply_drive', drive_id=drive.id) }}" style="display:inline;">
           <button type="submit" class="btn btn-success btn-sm">Apply</button>
         </form>
+        {% endif %}
       </td>
     </tr>
     {% else %}

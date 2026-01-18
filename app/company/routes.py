@@ -59,6 +59,15 @@ def edit_profile():
 @role_required('company')
 def download_resume(student_id):
     from flask import send_from_directory, current_app
+    # Security: Verify the student has applied to one of this company's drives
+    profile = CompanyProfile.query.filter_by(user_id=current_user.id).first()
+    app_exists = Application.query.join(PlacementDrive).filter(
+        Application.student_id == student_id,
+        PlacementDrive.company_id == profile.id
+    ).first()
+    if not app_exists:
+        flash('Unauthorized access to resume.', 'danger')
+        return redirect(url_for('company.drives'))
     student = StudentProfile.query.get_or_404(student_id)
     if student.resume_filename:
         return send_from_directory(current_app.config['UPLOAD_FOLDER'], student.resume_filename)
@@ -85,6 +94,10 @@ def create_drive():
         # Convert string to date object
         from datetime import datetime
         application_deadline = datetime.strptime(application_deadline_str, '%Y-%m-%d').date()
+        # Validate deadline is not in the past
+        if application_deadline < date.today():
+            flash('Application deadline cannot be in the past.', 'danger')
+            return redirect(url_for('company.create_drive'))
         drive = PlacementDrive(
             company_id=current_user.company_profile.id,
             title=title,

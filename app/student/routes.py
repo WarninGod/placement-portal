@@ -75,8 +75,11 @@ def dashboard():
 @role_required('student')
 def drives():
     today = date.today()
+    profile = StudentProfile.query.filter_by(user_id=current_user.id).first()
     drives = PlacementDrive.query.filter_by(is_approved=True, is_active=True).filter(PlacementDrive.application_deadline >= today).all()
-    return render_template('student/drives.html', drives=drives)
+    # Get list of drive IDs already applied to
+    applied_drive_ids = [app.drive_id for app in Application.query.filter_by(student_id=profile.id).all()]
+    return render_template('student/drives.html', drives=drives, applied_drive_ids=applied_drive_ids)
 
 # View drive details
 @student_bp.route('/drives/<int:drive_id>')

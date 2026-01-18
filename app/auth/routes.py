@@ -58,6 +58,10 @@ def student_register():
         roll_number = request.form['roll_number']
         department = request.form['department']
         graduation_year = int(request.form['graduation_year'])
+        # Validate password length
+        if len(password) < 6:
+            flash('Password must be at least 6 characters.', 'danger')
+            return redirect(url_for('auth.student_register'))
         if User.query.filter_by(email=email).first():
             flash('Email already registered.', 'danger')
             return redirect(url_for('auth.student_register'))
@@ -89,6 +93,10 @@ def company_register():
         email = request.form['email']
         password = request.form['password']
         company_name = request.form['company_name']
+        # Validate password length
+        if len(password) < 6:
+            flash('Password must be at least 6 characters.', 'danger')
+            return redirect(url_for('auth.company_register'))
         if User.query.filter_by(email=email).first():
             flash('Email already registered.', 'danger')
             return redirect(url_for('auth.company_register'))
